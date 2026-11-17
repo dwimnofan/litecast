@@ -1,0 +1,52 @@
+name: TinyCast
+options:
+  bundleIdPrefix: com.dwimnofan
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+    MACOSX_DEPLOYMENT_TARGET: "14.0"
+    ARCHS: arm64
+    CODE_SIGN_IDENTITY: "-"
+    CODE_SIGN_STYLE: Manual
+    DEVELOPMENT_TEAM: ""
+targets:
+  TinyCast:
+    type: application
+    platform: macOS
+    sources: [TinyCast]
+    info:
+      path: TinyCast/Info.plist
+      properties:
+        CFBundleDisplayName: TinyCast
+        CFBundleShortVersionString: "0.1.0"
+        CFBundleVersion: "1"
+        LSMinimumSystemVersion: "14.0"
+        NSHumanReadableCopyright: ""
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.dwimnofan.tinycast
+        ENABLE_HARDENED_RUNTIME: YES
+        # shortcut: no App Sandbox yet; decide with distribution plan (blueprint §2)
+        ENABLE_APP_SANDBOX: NO
+  TinyCastCoreTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources: [Tests/TinyCastCoreTests]
+    dependencies:
+      - target: TinyCast
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.dwimnofan.tinycast.tests
+        GENERATE_INFOPLIST_FILE: YES
+schemes:
+  TinyCast:
+    build:
+      targets:
+        TinyCast: all
+        TinyCastCoreTests: [test]
+    test:
+      targets: [TinyCastCoreTests]
