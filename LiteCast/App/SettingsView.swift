@@ -8,6 +8,9 @@ struct SettingsView: View {
         TabView {
             GeneralSettingsView(preferences: environment.preferences)
                 .tabItem { Label("General", systemImage: "gearshape") }
+            ClipboardSettingsView(preferences: environment.preferences,
+                                  historyStore: environment.clipboardHistoryStore)
+                .tabItem { Label("Clipboard", systemImage: "doc.on.clipboard") }
         }
         .frame(width: 560, height: 420)
     }

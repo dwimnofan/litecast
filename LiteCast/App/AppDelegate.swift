@@ -12,12 +12,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         environment.preferences.applyActivationPolicy()
         environment.appDiscovery.refreshIfStale()
         registerLauncherHotkey()
+        startClipboardMonitorIfEnabled()
+        observeClipboardToggle()
         Log.app.info("LiteCast launched")
     }
 
     func applicationWillTerminate(_ notification: Notification) {
         environment.hotkeys.unregister()
         environment.launcher.hide()
+        environment.clipboardMonitor.stop()
         Log.app.info("LiteCast terminating")
     }
 
@@ -31,6 +34,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             alert.messageText = "Couldn't register \(hotkey.displayName)"
             alert.informativeText = "Another app may already use this shortcut. You can still open the launcher from the LiteCast menu bar icon."
             alert.runModal()
+        }
+    }
+
+    private func startClipboardMonitorIfEnabled() {
+        if environment.preferences.clipboardHistoryEnabled {
+            environment.clipboardMonitor.start()
+        }
+    }
+
+    private func observeClipboardToggle() {
+        // withObservationTracking fires once; re-arm by calling this method again from MainActor.
+        withObservationTracking {
+            _ = environment.preferences.clipboardHistoryEnabled
+        } onChange: { [weak self] in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                if self.environment.preferences.clipboardHistoryEnabled {
+                    self.environment.clipboardMonitor.start()
+                } else {
+                    self.environment.clipboardMonitor.stop()
+                }
+                self.observeClipboardToggle()
+            }
         }
     }
 }
