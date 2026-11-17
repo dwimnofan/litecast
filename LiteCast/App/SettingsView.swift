@@ -10,6 +10,8 @@ struct SettingsView: View {
         TabView {
             GeneralSettingsView(environment: environment)
                 .tabItem { Label("General", systemImage: "gearshape") }
+            NotchSettingsView(preferences: environment.preferences)
+                .tabItem { Label("Notch", systemImage: "rectangle.topthird.inset.filled") }
         }
         .frame(width: 560, height: 420)
     }
@@ -120,5 +122,25 @@ private struct ShortcutRecorder: View {
             monitor = nil
             isRecording = false
         }
+    }
+}
+
+struct NotchSettingsView: View {
+    @Bindable var preferences: PreferencesStore
+
+    var body: some View {
+        Form {
+            Toggle("Enable notch", isOn: $preferences.notchEnabled)
+            Section("Widgets") {
+                Toggle("Now Playing (Music, Spotify)", isOn: $preferences.notchShowMedia)
+                Toggle("Battery", isOn: $preferences.notchShowBattery)
+                Toggle("File shelf", isOn: $preferences.notchShowShelf)
+            }
+            .disabled(!preferences.notchEnabled)
+            Text("Now Playing asks for Automation permission the first time Music or Spotify is playing.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .formStyle(.grouped)
     }
 }
