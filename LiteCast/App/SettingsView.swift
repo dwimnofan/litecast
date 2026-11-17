@@ -12,6 +12,10 @@ struct SettingsView: View {
                 .tabItem { Label("General", systemImage: "gearshape") }
             NotchSettingsView(preferences: environment.preferences)
                 .tabItem { Label("Notch", systemImage: "rectangle.topthird.inset.filled") }
+            QuicklinksSettingsView(store: environment.quicklinks)
+                .tabItem { Label("Quicklinks", systemImage: "link") }
+            SnippetsSettingsView(store: environment.snippets)
+                .tabItem { Label("Snippets", systemImage: "text.quote") }
         }
         .frame(width: 560, height: 420)
     }

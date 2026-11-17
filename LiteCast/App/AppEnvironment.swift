@@ -7,11 +7,15 @@ final class AppEnvironment {
     let hotkeys = HotkeyManager()
     let appDiscovery = AppDiscoveryService()
     let executor = CommandExecutor()
+    let quicklinks: QuicklinkStore
+    let snippets: SnippetStore
     let launcher: LauncherWindowController
     let notch: NotchWindowController
 
     init(defaults: UserDefaults = .standard) {
         preferences = PreferencesStore(defaults: defaults)
+        quicklinks = QuicklinkStore()
+        snippets = SnippetStore()
 
         let openSettings: @MainActor () -> Void = {
             NSApp.activate(ignoringOtherApps: true)
@@ -25,6 +29,9 @@ final class AppEnvironment {
         let providers: [SearchProvider] = [
             appDiscovery,
             BuiltinCommandProvider(executor: executor),
+            CalculatorProvider(),
+            QuicklinkProvider(store: quicklinks),
+            SnippetProvider(store: snippets),
         ]
         launcher = LauncherWindowController(discovery: appDiscovery, providers: providers, executor: executor)
         let launcher = launcher
