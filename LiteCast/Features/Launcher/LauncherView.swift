@@ -76,6 +76,11 @@ struct LauncherView: View {
         .frame(maxHeight: .infinity)
     }
 
+    private var footerLabel: String {
+        guard model.results.indices.contains(model.selectedIndex) else { return "LiteCast" }
+        return "LiteCast. Press Return to \(model.results[model.selectedIndex].action.title)"
+    }
+
     private var footer: some View {
         HStack(spacing: 8) {
             Image(systemName: "command")
@@ -96,13 +101,21 @@ struct LauncherView: View {
         .padding(.horizontal, 12)
         .frame(height: 40)
         .background(.black.opacity(0.08))
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(footerLabel)
     }
 }
 
 private struct ResultRow: View {
     let result: SearchResult
     let isSelected: Bool
+
+    private var spokenLabel: String {
+        var parts = [result.title]
+        if let subtitle = result.subtitle { parts.append(subtitle) }
+        if !result.accessory.isEmpty { parts.append(result.accessory) }
+        return parts.joined(separator: ", ")
+    }
 
     var body: some View {
         HStack(spacing: 10) {
@@ -136,7 +149,9 @@ private struct ResultRow: View {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .fill(isSelected ? Color.primary.opacity(0.1) : .clear)
         )
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(spokenLabel)
+        .accessibilityAddTraits(.isButton)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }

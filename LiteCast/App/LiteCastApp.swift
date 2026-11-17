@@ -6,8 +6,10 @@ struct LiteCastApp: App {
 
     var body: some Scene {
         MenuBarExtra("LiteCast", systemImage: "command") {
-            Button("Open Launcher  \(Hotkey.optionSpace.displayName)") { appDelegate.environment.launcher.show() }
-            Divider()
+            if appDelegate.environment.preferences.launcherEnabled {
+                Button("Open Launcher  \(appDelegate.environment.preferences.launcherHotkey.displayName)") { appDelegate.environment.launcher.show() }
+                Divider()
+            }
             SettingsLink { Text("Settings…") }
                 .keyboardShortcut(",")
             Divider()

@@ -24,4 +24,21 @@ final class AppEnvironment {
         ]
         launcher = LauncherWindowController(discovery: appDiscovery, providers: providers, executor: executor)
     }
+
+    /// Registers (or unregisters, when disabled) the launcher hotkey from preferences.
+    func applyLauncherHotkey() throws {
+        guard preferences.launcherEnabled else { hotkeys.unregister(); return }
+        try hotkeys.register(preferences.launcherHotkey) { [weak self] in self?.launcher.toggle() }
+    }
+
+    /// Switches the hotkey; on failure keeps (and re-registers) the previous one and returns a message.
+    func changeLauncherHotkey(to new: Hotkey) -> String? {
+        let old = preferences.launcherHotkey
+        preferences.launcherHotkey = new
+        do { try applyLauncherHotkey(); return nil } catch {
+            preferences.launcherHotkey = old
+            try? applyLauncherHotkey()
+            return "\(new.displayName) is unavailable (another app may use it). Kept \(old.displayName)."
+        }
+    }
 }
