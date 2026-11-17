@@ -16,6 +16,9 @@ struct SettingsView: View {
                 .tabItem { Label("Quicklinks", systemImage: "link") }
             SnippetsSettingsView(store: environment.snippets)
                 .tabItem { Label("Snippets", systemImage: "text.quote") }
+            ClipboardSettingsView(preferences: environment.preferences,
+                                  historyStore: environment.clipboardHistoryStore)
+                .tabItem { Label("Clipboard", systemImage: "doc.on.clipboard") }
         }
         .frame(width: 560, height: 420)
     }

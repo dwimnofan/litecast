@@ -11,11 +11,14 @@ final class AppEnvironment {
     let snippets: SnippetStore
     let launcher: LauncherWindowController
     let notch: NotchWindowController
+    let clipboardHistoryStore = ClipboardHistoryStore()
+    let clipboardMonitor: ClipboardMonitor
 
     init(defaults: UserDefaults = .standard) {
         preferences = PreferencesStore(defaults: defaults)
         quicklinks = QuicklinkStore()
         snippets = SnippetStore()
+        clipboardMonitor = ClipboardMonitor(historyStore: clipboardHistoryStore, preferences: preferences)
 
         let openSettings: @MainActor () -> Void = {
             NSApp.activate(ignoringOtherApps: true)
@@ -28,6 +31,7 @@ final class AppEnvironment {
 
         let providers: [SearchProvider] = [
             appDiscovery,
+            ClipboardHistoryProvider(historyStore: clipboardHistoryStore),
             BuiltinCommandProvider(executor: executor),
             CalculatorProvider(),
             QuicklinkProvider(store: quicklinks),
@@ -38,6 +42,25 @@ final class AppEnvironment {
         notch = NotchWindowController(preferences: preferences, openLauncher: { launcher.show() }, openSettings: openSettings)
         let notch = notch
         preferences.onNotchEnabledChange = { notch.applyPreference() }
+
+        // Register after all stored properties are initialized (self capture requires that).
+        executor.register(.clearClipboardHistory) { [weak self] in
+            guard let self else { return }
+            let alert = NSAlert()
+            alert.messageText = "Clear Clipboard History?"
+            alert.informativeText = "This will permanently delete all saved clipboard items."
+            alert.addButton(withTitle: "Clear")
+            alert.addButton(withTitle: "Cancel")
+            alert.alertStyle = .warning
+            if alert.runModal() == .alertFirstButtonReturn {
+                self.clipboardHistoryStore.clearAll()
+            }
+        }
+
+        // Track our own writes so the clipboard monitor doesn't re-record them.
+        executor.onCopyText = { [weak self] changeCount in
+            self?.clipboardMonitor.lastOwnWriteChangeCount = changeCount
+        }
     }
 
     /// Registers (or unregisters, when disabled) the launcher hotkey from preferences.

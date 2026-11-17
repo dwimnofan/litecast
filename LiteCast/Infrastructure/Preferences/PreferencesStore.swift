@@ -14,6 +14,8 @@ final class PreferencesStore {
         static let notchShowMedia = "notchShowMedia"
         static let notchShowBattery = "notchShowBattery"
         static let notchShowShelf = "notchShowShelf"
+        static let clipboardHistoryEnabled = "clipboardHistoryEnabled"
+        static let clipboardExcludedApps = "clipboardExcludedApps"
     }
 
     @ObservationIgnored private let defaults: UserDefaults
@@ -50,6 +52,16 @@ final class PreferencesStore {
     var notchShowBattery: Bool { didSet { defaults.set(notchShowBattery, forKey: Key.notchShowBattery) } }
     var notchShowShelf: Bool { didSet { defaults.set(notchShowShelf, forKey: Key.notchShowShelf) } }
 
+    /// Default OFF — clipboard recording is opt-in since it stores everything the user copies.
+    var clipboardHistoryEnabled: Bool {
+        didSet { defaults.set(clipboardHistoryEnabled, forKey: Key.clipboardHistoryEnabled) }
+    }
+
+    /// Bundle IDs of apps whose clipboard contents should not be recorded.
+    var clipboardExcludedApps: [String] {
+        didSet { defaults.set(clipboardExcludedApps, forKey: Key.clipboardExcludedApps) }
+    }
+
     init(defaults: UserDefaults) {
         self.defaults = defaults
         defaults.register(defaults: [
@@ -68,6 +80,9 @@ final class PreferencesStore {
         notchShowMedia = defaults.bool(forKey: Key.notchShowMedia)
         notchShowBattery = defaults.bool(forKey: Key.notchShowBattery)
         notchShowShelf = defaults.bool(forKey: Key.notchShowShelf)
+        // clipboardHistoryEnabled defaults to false (opt-in) — no register needed.
+        clipboardHistoryEnabled = defaults.bool(forKey: Key.clipboardHistoryEnabled)
+        clipboardExcludedApps = defaults.stringArray(forKey: Key.clipboardExcludedApps) ?? []
     }
 
     func applyActivationPolicy() {

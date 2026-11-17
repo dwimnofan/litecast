@@ -17,6 +17,10 @@ final class CommandExecutor {
 
     private var builtinHandlers: [BuiltinCommand: () -> Void] = [:]
 
+    /// Called after the executor writes text to the pasteboard, with the new changeCount.
+    /// Used by ClipboardMonitor to skip our own writes.
+    var onCopyText: ((Int) -> Void)?
+
     /// Features register the built-in commands they implement.
     func register(_ command: BuiltinCommand, handler: @escaping () -> Void) {
         builtinHandlers[command] = handler
@@ -41,6 +45,7 @@ final class CommandExecutor {
         case .copyText(let text):
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(text, forType: .string)
+            onCopyText?(NSPasteboard.general.changeCount)
         case .builtin(let command):
             guard let handler = builtinHandlers[command] else { throw ExecutionError.unavailableCommand(command) }
             handler()

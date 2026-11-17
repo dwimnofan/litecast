@@ -25,9 +25,9 @@ log show --info --last 5m --predicate 'subsystem == "com.dwimnofan.litecast"'
 Add other folders from the blueprint only when their feature starts.
 
 ## Status
-- Milestone 0 done: app launches on macOS 14.6, menu bar item (Settings, Quit), Dock-visibility preference, clean quit.
-- Milestone 1 code done (⌥Space launcher, app search, fuzzy ranking); awaiting manual keyboard test.
-- Research for Milestone 2/4: docs/research/notch-and-media-macos14.md (unverified).
+- Milestones 0-4 code merged on main (launcher, notch + Now Playing/battery/shelf, calculator, quicklinks, snippets, clipboard history) plus polish (custom hotkey, launch at login, toggles). 80 unit tests pass.
+- Not yet verified at runtime by hand: keyboard navigation, notch hover/drop, media, clipboard capture. See docs/KNOWN_LIMITATIONS.md.
+- Deferred: Milestone 5 (extensions, AI); Sparkle, signing/notarization, Instruments profiling.
 
 ## Extension points (read before adding a feature)
 - **Search results:** implement `SearchProvider` (`Core/Search/SearchResult.swift`), return `[]` for queries you don't handle, add it to the `providers` array in `AppEnvironment`. Score with `FuzzyMatcher`/`SearchEngine.rank`; > 1000 pins to top.
