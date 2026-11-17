@@ -22,9 +22,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func registerLauncherHotkey() {
-        let hotkey = Hotkey.optionSpace
+        let hotkey = environment.preferences.launcherHotkey
         do {
-            try environment.hotkeys.register(hotkey) { [weak self] in self?.environment.launcher.toggle() }
+            try environment.applyLauncherHotkey()
         } catch {
             Log.app.error("Hotkey \(hotkey.displayName) registration failed: \(String(describing: error))")
             let alert = NSAlert()
