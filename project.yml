@@ -1,4 +1,4 @@
-name: TinyCast
+name: LiteCast
 options:
   bundleIdPrefix: com.dwimnofan
   deploymentTarget:
@@ -14,39 +14,39 @@ settings:
     CODE_SIGN_STYLE: Manual
     DEVELOPMENT_TEAM: ""
 targets:
-  TinyCast:
+  LiteCast:
     type: application
     platform: macOS
-    sources: [TinyCast]
+    sources: [LiteCast]
     info:
-      path: TinyCast/Info.plist
+      path: LiteCast/Info.plist
       properties:
-        CFBundleDisplayName: TinyCast
+        CFBundleDisplayName: LiteCast
         CFBundleShortVersionString: "0.1.0"
         CFBundleVersion: "1"
         LSMinimumSystemVersion: "14.0"
         NSHumanReadableCopyright: ""
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.dwimnofan.tinycast
+        PRODUCT_BUNDLE_IDENTIFIER: com.dwimnofan.litecast
         ENABLE_HARDENED_RUNTIME: YES
         # shortcut: no App Sandbox yet; decide with distribution plan (blueprint §2)
         ENABLE_APP_SANDBOX: NO
-  TinyCastCoreTests:
+  LiteCastCoreTests:
     type: bundle.unit-test
     platform: macOS
-    sources: [Tests/TinyCastCoreTests]
+    sources: [Tests/LiteCastCoreTests]
     dependencies:
-      - target: TinyCast
+      - target: LiteCast
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.dwimnofan.tinycast.tests
+        PRODUCT_BUNDLE_IDENTIFIER: com.dwimnofan.litecast.tests
         GENERATE_INFOPLIST_FILE: YES
 schemes:
-  TinyCast:
+  LiteCast:
     build:
       targets:
-        TinyCast: all
-        TinyCastCoreTests: [test]
+        LiteCast: all
+        LiteCastCoreTests: [test]
     test:
-      targets: [TinyCastCoreTests]
+      targets: [LiteCastCoreTests]

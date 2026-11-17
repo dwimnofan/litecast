@@ -1,9 +1,9 @@
 import XCTest
-@testable import TinyCast
+@testable import LiteCast
 
 @MainActor
 final class PreferencesStoreTests: XCTestCase {
-    private let suite = "com.dwimnofan.tinycast.tests.prefs"
+    private let suite = "com.dwimnofan.litecast.tests.prefs"
 
     override func tearDown() {
         UserDefaults().removePersistentDomain(forName: suite)
