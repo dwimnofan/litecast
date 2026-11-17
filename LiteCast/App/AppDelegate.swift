@@ -12,12 +12,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         environment.preferences.applyActivationPolicy()
         environment.appDiscovery.refreshIfStale()
         registerLauncherHotkey()
+        environment.notch.start()
         Log.app.info("LiteCast launched")
     }
 
     func applicationWillTerminate(_ notification: Notification) {
         environment.hotkeys.unregister()
         environment.launcher.hide()
+        environment.notch.stop()
         Log.app.info("LiteCast terminating")
     }
 

@@ -7,6 +7,7 @@ struct LiteCastApp: App {
     var body: some Scene {
         MenuBarExtra("LiteCast", systemImage: "command") {
             Button("Open Launcher  \(Hotkey.optionSpace.displayName)") { appDelegate.environment.launcher.show() }
+            Button("Toggle Notch") { appDelegate.environment.preferences.notchEnabled.toggle() }
             Divider()
             SettingsLink { Text("Settings…") }
                 .keyboardShortcut(",")

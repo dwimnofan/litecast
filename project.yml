@@ -26,6 +26,11 @@ targets:
         CFBundleVersion: "1"
         LSMinimumSystemVersion: "14.0"
         NSHumanReadableCopyright: ""
+        NSAppleEventsUsageDescription: "LiteCast reads and controls Music and Spotify to show Now Playing in the notch."
+    entitlements:
+      path: LiteCast/LiteCast.entitlements
+      properties:
+        com.apple.security.automation.apple-events: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.dwimnofan.litecast

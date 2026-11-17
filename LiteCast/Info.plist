@@ -22,6 +22,8 @@
 	<string>1</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>14.0</string>
+	<key>NSAppleEventsUsageDescription</key>
+	<string>LiteCast reads and controls Music and Spotify to show Now Playing in the notch.</string>
 	<key>NSHumanReadableCopyright</key>
 	<string></string>
 </dict>
