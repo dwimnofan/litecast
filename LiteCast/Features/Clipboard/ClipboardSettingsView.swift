@@ -1,12 +1,15 @@
 import SwiftUI
 import AppKit
+import Carbon.HIToolbox
 
-/// Settings tab for clipboard history: enable/disable, retention, exclusions, clear.
+/// Settings tab for clipboard history: enable/disable, hotkey, retention, exclusions, clear.
 struct ClipboardSettingsView: View {
+    let environment: AppEnvironment
     @Bindable var preferences: PreferencesStore
     @Bindable var historyStore: ClipboardHistoryStore
 
     @State private var showClearConfirmation = false
+    @State private var hotkeyError: String?
 
     var body: some View {
         Form {
@@ -14,12 +17,30 @@ struct ClipboardSettingsView: View {
                 Toggle(isOn: $preferences.clipboardHistoryEnabled) {
                     Text("Enable Clipboard History")
                 }
-                Text("When enabled, LiteCast records text you copy to the clipboard. History is stored locally in ~/Library/Application Support/LiteCast/.")
+                Text("When enabled, LiteCast records text and images you copy. History is stored locally in ~/Library/Application Support/LiteCast/.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
 
             if preferences.clipboardHistoryEnabled {
+                Section("Shortcut") {
+                    LabeledContent("Open history") {
+                        HStack {
+                            ShortcutRecorderControl(current: preferences.clipboardHotkey, accessibilityLabel: "Clipboard History shortcut") {
+                                hotkeyError = environment.changeClipboardHotkey(to: $0)
+                            }
+                            Button("Reset") { hotkeyError = environment.changeClipboardHotkey(to: .shiftCommandV) }
+                                .disabled(preferences.clipboardHotkey == .shiftCommandV)
+                        }
+                    }
+                    if let hotkeyError {
+                        Text(hotkeyError).foregroundStyle(.red).font(.callout)
+                    }
+                    Text("Paste uses a synthetic ⌘V after the panel hides. If paste never reaches the other app, grant Accessibility to LiteCast in System Settings.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
                 Section("Retention") {
                     Stepper("Maximum items: \(historyStore.maxItemCount)",
                             value: $historyStore.maxItemCount,
@@ -96,6 +117,51 @@ struct ClipboardSettingsView: View {
                     }
                 }
             }
+        }
+    }
+}
+
+/// Click to record; the next combo with ⌘/⌥/⌃ is captured, Esc cancels.
+struct ShortcutRecorderControl: View {
+    let current: Hotkey
+    var accessibilityLabel: String = "Shortcut"
+    let onRecord: (Hotkey) -> Void
+    @State private var recorder = Recorder()
+
+    var body: some View {
+        Button(recorder.isRecording ? "Type shortcut… (Esc to cancel)" : current.displayName) {
+            recorder.isRecording ? recorder.stop() : recorder.start(onRecord)
+        }
+        .accessibilityLabel(accessibilityLabel)
+        .accessibilityValue(recorder.isRecording ? "Recording" : current.displayName)
+        .accessibilityHint("Activate, then press the new key combination")
+        .onDisappear { recorder.stop() }
+    }
+
+    @MainActor @Observable
+    final class Recorder {
+        var isRecording = false
+        @ObservationIgnored private var monitor: Any?
+
+        func start(_ onRecord: @escaping (Hotkey) -> Void) {
+            isRecording = true
+            monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+                let isEscape = event.keyCode == UInt16(kVK_Escape)
+                let hotkey = Hotkey(event: event)
+                MainActor.assumeIsolated {
+                    if isEscape { self?.stop(); return }
+                    guard let hotkey else { NSSound.beep(); return }
+                    self?.stop()
+                    onRecord(hotkey)
+                }
+                return nil
+            }
+        }
+
+        func stop() {
+            if let monitor { NSEvent.removeMonitor(monitor) }
+            monitor = nil
+            isRecording = false
         }
     }
 }

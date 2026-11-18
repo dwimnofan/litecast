@@ -16,6 +16,9 @@ final class PreferencesStore {
         static let notchShowShelf = "notchShowShelf"
         static let clipboardHistoryEnabled = "clipboardHistoryEnabled"
         static let clipboardExcludedApps = "clipboardExcludedApps"
+        static let clipboardHotkeyCode = "clipboardHotkeyKeyCode"
+        static let clipboardHotkeyModifiers = "clipboardHotkeyModifiers"
+        static let clipboardHotkeyName = "clipboardHotkeyName"
     }
 
     @ObservationIgnored private let defaults: UserDefaults
@@ -57,6 +60,14 @@ final class PreferencesStore {
         didSet { defaults.set(clipboardHistoryEnabled, forKey: Key.clipboardHistoryEnabled) }
     }
 
+    var clipboardHotkey: Hotkey {
+        didSet {
+            defaults.set(Int(clipboardHotkey.keyCode), forKey: Key.clipboardHotkeyCode)
+            defaults.set(Int(clipboardHotkey.carbonModifiers), forKey: Key.clipboardHotkeyModifiers)
+            defaults.set(clipboardHotkey.displayName, forKey: Key.clipboardHotkeyName)
+        }
+    }
+
     /// Bundle IDs of apps whose clipboard contents should not be recorded.
     var clipboardExcludedApps: [String] {
         didSet { defaults.set(clipboardExcludedApps, forKey: Key.clipboardExcludedApps) }
@@ -82,6 +93,13 @@ final class PreferencesStore {
         notchShowShelf = defaults.bool(forKey: Key.notchShowShelf)
         // clipboardHistoryEnabled defaults to false (opt-in) — no register needed.
         clipboardHistoryEnabled = defaults.bool(forKey: Key.clipboardHistoryEnabled)
+        if let name = defaults.string(forKey: Key.clipboardHotkeyName), defaults.object(forKey: Key.clipboardHotkeyCode) != nil {
+            clipboardHotkey = Hotkey(keyCode: UInt32(defaults.integer(forKey: Key.clipboardHotkeyCode)),
+                                     carbonModifiers: UInt32(defaults.integer(forKey: Key.clipboardHotkeyModifiers)),
+                                     displayName: name)
+        } else {
+            clipboardHotkey = .shiftCommandV
+        }
         clipboardExcludedApps = defaults.stringArray(forKey: Key.clipboardExcludedApps) ?? []
     }
 

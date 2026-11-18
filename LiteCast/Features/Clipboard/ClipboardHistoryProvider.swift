@@ -27,11 +27,12 @@ final class ClipboardHistoryProvider: SearchProvider {
             return prefixed == nil ? [] : historyStore.items.prefix(limit).map { makeResult(for: $0, score: 500) }
         }
 
-        // Fuzzy-match the (bounded) full text, not the truncated title. Unprefixed results are
+        // Fuzzy-match the (bounded) full text / title. Unprefixed results are
         // scaled down so they sit below typical app matches.
         let scale = prefixed == nil ? 0.3 : 1.0
         let scored: [SearchResult] = historyStore.items.compactMap { item in
-            FuzzyMatcher.score(query: term, title: String(item.text.prefix(500))).map {
+            let haystack = item.kind == .image ? item.title : String(item.text.prefix(500))
+            return FuzzyMatcher.score(query: term, title: haystack).map {
                 makeResult(for: item, score: $0 * scale)
             }
         }
@@ -42,13 +43,25 @@ final class ClipboardHistoryProvider: SearchProvider {
     }
 
     private func makeResult(for item: ClipboardItem, score: Double) -> SearchResult {
-        SearchResult(
+        let action: SearchAction
+        switch item.kind {
+        case .text, .link:
+            action = .copyText(item.text)
+        case .image:
+            // Launcher copies the image onto the pasteboard when possible.
+            if let data = historyStore.imageData(for: item) {
+                action = .copyImage(data)
+            } else {
+                action = .copyText(item.title)
+            }
+        }
+        return SearchResult(
             id: "clipboard.\(item.id.uuidString)",
-            title: item.text.firstLine(maxLength: 80),
+            title: item.title,
             subtitle: Self.subtitle(for: item),
             accessory: "Clipboard",
-            icon: .symbol("doc.on.clipboard"),
-            action: .copyText(item.text),
+            icon: .symbol(item.kind.symbol),
+            action: action,
             score: score
         )
     }
@@ -71,19 +84,5 @@ final class ClipboardHistoryProvider: SearchProvider {
     private static func appName(for bundleID: String) -> String? {
         guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else { return nil }
         return FileManager.default.displayName(atPath: url.path)
-    }
-}
-
-// MARK: - String helpers
-
-private extension String {
-    /// Returns the first line, trimmed, with a max length.
-    func firstLine(maxLength: Int) -> String {
-        let trimmed = trimmingCharacters(in: .whitespacesAndNewlines).prefix { !$0.isNewline }
-            .trimmingCharacters(in: .whitespaces)
-        if trimmed.count > maxLength {
-            return String(trimmed.prefix(maxLength - 1)) + "…"
-        }
-        return trimmed
     }
 }

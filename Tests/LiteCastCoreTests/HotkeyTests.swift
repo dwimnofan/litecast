@@ -21,6 +21,17 @@ final class HotkeyTests: XCTestCase {
         let all = UInt32(cmdKey | optionKey | controlKey | shiftKey)
         XCTAssertEqual(Hotkey.displayName(keyCode: UInt32(kVK_ANSI_K), carbonModifiers: all, characters: "k"), "⌃⌥⇧⌘K")
         XCTAssertEqual(Hotkey.displayName(keyCode: UInt32(kVK_F5), carbonModifiers: UInt32(cmdKey), characters: nil), "⌘F5")
+        XCTAssertEqual(Hotkey.shiftCommandV.displayName, "⇧⌘V")
+    }
+
+    func testClipboardHotkeyDefaults() throws {
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: "\(suite).clipboard"))
+        defer { UserDefaults().removePersistentDomain(forName: "\(suite).clipboard") }
+        let store = PreferencesStore(defaults: defaults)
+        XCTAssertEqual(store.clipboardHotkey, .shiftCommandV)
+        let custom = Hotkey(keyCode: UInt32(kVK_ANSI_C), carbonModifiers: UInt32(optionKey | cmdKey), displayName: "⌥⌘C")
+        store.clipboardHotkey = custom
+        XCTAssertEqual(PreferencesStore(defaults: defaults).clipboardHotkey, custom)
     }
 
     func testHotkeyPersistsAndDefaults() throws {

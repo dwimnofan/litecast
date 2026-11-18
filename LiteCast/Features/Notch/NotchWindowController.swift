@@ -23,6 +23,8 @@ final class NotchWindowController {
     private var geometry: NotchGeometry?
     private var monitors: [Any] = []
     private var screenObserver: NSObjectProtocol?
+    /// Last mouse sample we acted on — skip duplicate/near-duplicate moves.
+    private var lastMouseSample: CGPoint = .zero
 
     init(preferences: PreferencesStore, openLauncher: @escaping @MainActor () -> Void, openSettings: @escaping @MainActor () -> Void) {
         self.preferences = preferences
@@ -39,8 +41,10 @@ final class NotchWindowController {
         reposition()
         panel.orderFrontRegardless()
         installMonitors()
+        // Battery is event-driven and cheap. Now Playing only attaches listeners —
+        // no AppleScript until the notch expands or a player posts a notification.
         battery.start()
-        nowPlaying.start()
+        nowPlaying.start(refreshImmediately: false)
         screenObserver = NotificationCenter.default.addObserver(
             forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main
         ) { [weak self] _ in Task { @MainActor in self?.reposition() } }
@@ -87,13 +91,14 @@ final class NotchWindowController {
 
     // Global monitors never see events for our own windows, hence the local one for when we are expanded.
     // Drags are included so hovering a file drag over the notch expands it as a drop target.
+    // Callbacks run on the main thread — call mouseChanged directly (no Task per mouse move).
     private func installMonitors() {
         let mask: NSEvent.EventTypeMask = [.mouseMoved, .leftMouseDragged, .leftMouseUp]
         if let global = NSEvent.addGlobalMonitorForEvents(matching: mask, handler: { [weak self] _ in
-            Task { @MainActor in self?.mouseChanged() }
+            MainActor.assumeIsolated { self?.mouseChanged() }
         }) { monitors.append(global) }
         if let local = NSEvent.addLocalMonitorForEvents(matching: mask, handler: { [weak self] event in
-            Task { @MainActor in self?.mouseChanged() }
+            MainActor.assumeIsolated { self?.mouseChanged() }
             return event
         }) { monitors.append(local) }
     }
@@ -101,7 +106,13 @@ final class NotchWindowController {
     private func mouseChanged() {
         guard let panel, let geometry else { return }
         let mouse = NSEvent.mouseLocation
+        // Skip sub-point jitter; mouseMoved fires very frequently.
+        if abs(mouse.x - lastMouseSample.x) < 1, abs(mouse.y - lastMouseSample.y) < 1 { return }
+        lastMouseSample = mouse
+
         if !state.isExpanded {
+            // Cheap reject: ignore moves nowhere near the top of the screen / hover strip.
+            if mouse.y < geometry.hoverRect.minY - 8 { return }
             if NotchGeometry.hit(geometry.hoverRect, mouse) { setExpanded(true, panel: panel) }
         } else if !NotchGeometry.hit(panel.frame, mouse), NSEvent.pressedMouseButtons == 0 {
             // Stay open while a button is held so a drag out of the shelf isn't torn down mid-flight.

@@ -9,17 +9,19 @@ struct LiteCastApp: App {
             if appDelegate.environment.preferences.launcherEnabled {
                 Button("Open Launcher  \(appDelegate.environment.preferences.launcherHotkey.displayName)") { appDelegate.environment.launcher.show() }
             }
+            if appDelegate.environment.preferences.clipboardHistoryEnabled {
+                Button("Clipboard History  \(appDelegate.environment.preferences.clipboardHotkey.displayName)") {
+                    appDelegate.environment.launcher.hide()
+                    appDelegate.environment.clipboard.show()
+                }
+            }
             Button("Toggle Notch") { appDelegate.environment.preferences.notchEnabled.toggle() }
             Divider()
-            SettingsLink { Text("Settings…") }
+            Button("Settings…") { appDelegate.environment.settings.show() }
                 .keyboardShortcut(",")
             Divider()
             Button("Quit LiteCast") { NSApp.terminate(nil) }
                 .keyboardShortcut("q")
-        }
-
-        Settings {
-            SettingsView(environment: appDelegate.environment)
         }
     }
 }

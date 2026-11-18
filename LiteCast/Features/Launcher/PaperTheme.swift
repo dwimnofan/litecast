@@ -25,9 +25,10 @@ enum Paper {
             : .system(size: size, weight: weight, design: .serif)
     }
 
-    /// Tileable grain, generated once (no bundled asset).
+    /// Tileable grain, generated once on first launcher/clipboard paint (no bundled asset).
+    /// 64² is enough to tile; keeps the one-time buffer small.
     @MainActor static let grain: NSImage = {
-        let side = 128
+        let side = 64
         var state: UInt32 = 0x9E37_79B9
         var pixels = [UInt8](repeating: 255, count: side * side * 4)
         for i in stride(from: 0, to: pixels.count, by: 4) {

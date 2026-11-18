@@ -8,12 +8,13 @@ enum SearchIcon: Hashable, Sendable {
 /// Built-in commands. A command only shows in search once a handler is registered
 /// on `CommandExecutor`, so unimplemented commands never appear.
 enum BuiltinCommand: String, CaseIterable, Hashable, Sendable {
-    case openSettings, toggleNotch, clearClipboardHistory, quit
+    case openSettings, toggleNotch, openClipboardHistory, clearClipboardHistory, quit
 
     var title: String {
         switch self {
         case .openSettings: "Open LiteCast Settings"
         case .toggleNotch: "Toggle Notch"
+        case .openClipboardHistory: "Clipboard History"
         case .clearClipboardHistory: "Clear Clipboard History"
         case .quit: "Quit LiteCast"
         }
@@ -23,6 +24,7 @@ enum BuiltinCommand: String, CaseIterable, Hashable, Sendable {
         switch self {
         case .openSettings: "gearshape"
         case .toggleNotch: "rectangle.topthird.inset.filled"
+        case .openClipboardHistory: "doc.on.clipboard"
         case .clearClipboardHistory: "trash"
         case .quit: "power"
         }
@@ -34,6 +36,7 @@ enum SearchAction: Hashable, Sendable {
     case openApplication(URL)
     case openURL(URL)
     case copyText(String)
+    case copyImage(Data)
     case builtin(BuiltinCommand)
     case revealInFinder(URL)
 
@@ -42,6 +45,7 @@ enum SearchAction: Hashable, Sendable {
         case .openApplication: "Open Application"
         case .openURL: "Open Link"
         case .copyText: "Copy to Clipboard"
+        case .copyImage: "Copy Image"
         case .builtin: "Run Command"
         case .revealInFinder: "Show in Finder"
         }

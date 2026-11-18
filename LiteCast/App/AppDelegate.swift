@@ -10,8 +10,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Unit tests host the app; skip global side effects (hotkey, alerts) so a running LiteCast isn't disturbed.
         guard !Self.isRunningTests else { return }
         environment.preferences.applyActivationPolicy()
-        environment.appDiscovery.refreshIfStale()
-        registerLauncherHotkey()
+        // App index waits for the first launcher open — no filesystem walk at launch.
+        registerHotkeys()
         environment.notch.start()
         startClipboardMonitorIfEnabled()
         observeClipboardToggle()
@@ -19,23 +19,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
-        environment.hotkeys.unregister()
+        environment.hotkeys.unregisterAll()
         environment.launcher.hide()
+        environment.clipboard.hide()
         environment.notch.stop()
         environment.clipboardMonitor.stop()
         Log.app.info("LiteCast terminating")
     }
 
-    private func registerLauncherHotkey() {
-        let hotkey = environment.preferences.launcherHotkey
+    private func registerHotkeys() {
         do {
             try environment.applyLauncherHotkey()
         } catch {
+            let hotkey = environment.preferences.launcherHotkey
             Log.app.error("Hotkey \(hotkey.displayName) registration failed: \(String(describing: error))")
             let alert = NSAlert()
             alert.messageText = "Couldn't register \(hotkey.displayName)"
             alert.informativeText = "Another app may already use this shortcut. You can still open the launcher from the LiteCast menu bar icon."
             alert.runModal()
+        }
+        do {
+            try environment.applyClipboardHotkey()
+        } catch {
+            let hotkey = environment.preferences.clipboardHotkey
+            Log.app.error("Clipboard hotkey \(hotkey.displayName) registration failed: \(String(describing: error))")
         }
     }
 
@@ -57,6 +64,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 } else {
                     self.environment.clipboardMonitor.stop()
                 }
+                try? self.environment.applyClipboardHotkey()
                 self.observeClipboardToggle()
             }
         }

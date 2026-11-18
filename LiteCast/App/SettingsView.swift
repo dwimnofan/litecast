@@ -1,4 +1,3 @@
-import Carbon.HIToolbox
 import ServiceManagement
 import SwiftUI
 
@@ -16,7 +15,8 @@ struct SettingsView: View {
                 .tabItem { Label("Quicklinks", systemImage: "link") }
             SnippetsSettingsView(store: environment.snippets)
                 .tabItem { Label("Snippets", systemImage: "text.quote") }
-            ClipboardSettingsView(preferences: environment.preferences,
+            ClipboardSettingsView(environment: environment,
+                                  preferences: environment.preferences,
                                   historyStore: environment.clipboardHistoryStore)
                 .tabItem { Label("Clipboard", systemImage: "doc.on.clipboard") }
         }
@@ -45,7 +45,9 @@ struct GeneralSettingsView: View {
                     }
                 LabeledContent("Shortcut") {
                     HStack {
-                        ShortcutRecorder(current: preferences.launcherHotkey) { hotkeyError = environment.changeLauncherHotkey(to: $0) }
+                        ShortcutRecorderControl(current: preferences.launcherHotkey, accessibilityLabel: "Launcher shortcut") {
+                            hotkeyError = environment.changeLauncherHotkey(to: $0)
+                        }
                         Button("Reset") { hotkeyError = environment.changeLauncherHotkey(to: .optionSpace) }
                             .disabled(preferences.launcherHotkey == .optionSpace)
                             .accessibilityLabel("Reset shortcut to Option Space")
@@ -85,50 +87,6 @@ struct GeneralSettingsView: View {
             loginError = error.localizedDescription
         }
         loginStatus = SMAppService.mainApp.status
-    }
-}
-
-/// Click to record; the next combo with ⌘/⌥/⌃ is captured, Esc cancels.
-private struct ShortcutRecorder: View {
-    let current: Hotkey
-    let onRecord: (Hotkey) -> Void
-    @State private var recorder = Recorder()
-
-    var body: some View {
-        Button(recorder.isRecording ? "Type shortcut… (Esc to cancel)" : current.displayName) {
-            recorder.isRecording ? recorder.stop() : recorder.start(onRecord)
-        }
-        .accessibilityLabel("Launcher shortcut")
-        .accessibilityValue(recorder.isRecording ? "Recording" : current.displayName)
-        .accessibilityHint("Activate, then press the new key combination")
-        .onDisappear { recorder.stop() }
-    }
-
-    @MainActor @Observable
-    final class Recorder {
-        var isRecording = false
-        @ObservationIgnored private var monitor: Any?
-
-        func start(_ onRecord: @escaping (Hotkey) -> Void) {
-            isRecording = true
-            monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-                let isEscape = event.keyCode == UInt16(kVK_Escape)
-                let hotkey = Hotkey(event: event)
-                MainActor.assumeIsolated {
-                    if isEscape { self?.stop(); return }
-                    guard let hotkey else { NSSound.beep(); return }
-                    self?.stop()
-                    onRecord(hotkey)
-                }
-                return nil
-            }
-        }
-
-        func stop() {
-            if let monitor { NSEvent.removeMonitor(monitor) }
-            monitor = nil
-            isRecording = false
-        }
     }
 }
 

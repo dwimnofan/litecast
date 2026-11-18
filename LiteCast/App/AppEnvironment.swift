@@ -11,8 +11,10 @@ final class AppEnvironment {
     let snippets: SnippetStore
     let launcher: LauncherWindowController
     let notch: NotchWindowController
+    let settings = SettingsWindowController()
     let clipboardHistoryStore = ClipboardHistoryStore()
     let clipboardMonitor: ClipboardMonitor
+    let clipboard: ClipboardWindowController
 
     init(defaults: UserDefaults = .standard) {
         preferences = PreferencesStore(defaults: defaults)
@@ -20,11 +22,6 @@ final class AppEnvironment {
         snippets = SnippetStore()
         clipboardMonitor = ClipboardMonitor(historyStore: clipboardHistoryStore, preferences: preferences)
 
-        let openSettings: @MainActor () -> Void = {
-            NSApp.activate(ignoringOtherApps: true)
-            NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
-        }
-        executor.register(.openSettings, handler: openSettings)
         let prefs = preferences
         executor.register(.toggleNotch) { prefs.notchEnabled.toggle() }
         executor.register(.quit) { NSApp.terminate(nil) }
@@ -39,11 +36,27 @@ final class AppEnvironment {
         ]
         launcher = LauncherWindowController(discovery: appDiscovery, providers: providers, executor: executor)
         let launcher = launcher
+        // Settings opens via our own NSWindow — showSettingsWindow: is unavailable from AppKit on macOS 14+.
+        let settings = settings
+        let openSettings: @MainActor () -> Void = { settings.show() }
+        executor.register(.openSettings, handler: openSettings)
         notch = NotchWindowController(preferences: preferences, openLauncher: { launcher.show() }, openSettings: openSettings)
         let notch = notch
         preferences.onNotchEnabledChange = { notch.applyPreference() }
 
-        // Register after all stored properties are initialized (self capture requires that).
+        let monitor = clipboardMonitor
+        clipboard = ClipboardWindowController(historyStore: clipboardHistoryStore) { changeCount in
+            monitor.lastOwnWriteChangeCount = changeCount
+        }
+        let clipboard = clipboard
+        executor.register(.openClipboardHistory) {
+            guard prefs.clipboardHistoryEnabled else { return }
+            launcher.hide()
+            clipboard.show()
+        }
+
+        // After all stored properties are initialized.
+        settings.environment = self
         executor.register(.clearClipboardHistory) { [weak self] in
             guard let self else { return }
             let alert = NSAlert()
@@ -65,8 +78,27 @@ final class AppEnvironment {
 
     /// Registers (or unregisters, when disabled) the launcher hotkey from preferences.
     func applyLauncherHotkey() throws {
-        guard preferences.launcherEnabled else { hotkeys.unregister(); return }
-        try hotkeys.register(preferences.launcherHotkey) { [weak self] in self?.launcher.toggle() }
+        if preferences.launcherEnabled {
+            try hotkeys.register(preferences.launcherHotkey, slot: .launcher) { [weak self] in
+                self?.clipboard.hide()
+                self?.launcher.toggle()
+            }
+        } else {
+            hotkeys.unregister(.launcher)
+        }
+    }
+
+    /// Registers (or unregisters) the clipboard-history hotkey when the feature is enabled.
+    func applyClipboardHotkey() throws {
+        if preferences.clipboardHistoryEnabled {
+            try hotkeys.register(preferences.clipboardHotkey, slot: .clipboard) { [weak self] in
+                self?.launcher.hide()
+                self?.clipboard.toggle()
+            }
+        } else {
+            hotkeys.unregister(.clipboard)
+            clipboard.hide()
+        }
     }
 
     /// Switches the hotkey; on failure keeps (and re-registers) the previous one and returns a message.
@@ -76,6 +108,16 @@ final class AppEnvironment {
         do { try applyLauncherHotkey(); return nil } catch {
             preferences.launcherHotkey = old
             try? applyLauncherHotkey()
+            return "\(new.displayName) is unavailable (another app may use it). Kept \(old.displayName)."
+        }
+    }
+
+    func changeClipboardHotkey(to new: Hotkey) -> String? {
+        let old = preferences.clipboardHotkey
+        preferences.clipboardHotkey = new
+        do { try applyClipboardHotkey(); return nil } catch {
+            preferences.clipboardHotkey = old
+            try? applyClipboardHotkey()
             return "\(new.displayName) is unavailable (another app may use it). Kept \(old.displayName)."
         }
     }

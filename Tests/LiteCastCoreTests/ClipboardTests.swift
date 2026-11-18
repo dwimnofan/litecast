@@ -1,3 +1,4 @@
+import AppKit
 import XCTest
 @testable import LiteCast
 
@@ -287,6 +288,104 @@ final class ClipboardTests: XCTestCase {
         XCTAssertEqual(decoded.text, item.text)
         XCTAssertEqual(decoded.id, item.id)
         XCTAssertEqual(decoded.sourceAppBundleID, item.sourceAppBundleID)
+        XCTAssertEqual(decoded.kind, .text)
+    }
+
+    func testInfersLinkKindFromURL() {
+        let link = ClipboardItem(text: "https://example.com/path")
+        XCTAssertEqual(link.kind, .link)
+        let text = ClipboardItem(text: "not a url")
+        XCTAssertEqual(text.kind, .text)
+    }
+
+    func testDecodesLegacyItemsWithoutKind() throws {
+        // Pre-image history only stored text fields.
+        let json = """
+        {"id":"A0A0A0A0-A0A0-A0A0-A0A0-A0A0A0A0A0A0","text":"https://legacy.example","date":734000000,"sourceAppBundleID":null}
+        """
+        let decoded = try JSONDecoder().decode(ClipboardItem.self, from: Data(json.utf8))
+        XCTAssertEqual(decoded.kind, .link)
+        XCTAssertEqual(decoded.text, "https://legacy.example")
+    }
+
+    func testImageAddDedupesByHash() {
+        let store = makeStore()
+        let png = solidPNG(width: 4, height: 4, gray: 80)
+        store.addImage(pngData: png, width: 4, height: 4, sourceAppBundleID: "com.apple.Safari")
+        store.add(text: "between")
+        store.addImage(pngData: png, width: 4, height: 4)
+        XCTAssertEqual(store.items.count, 2)
+        XCTAssertEqual(store.items[0].kind, .image)
+        XCTAssertEqual(store.items[1].text, "between")
+        XCTAssertNotNil(store.imageData(for: store.items[0]))
+    }
+
+    func testPngDataDownscalesHugeImages() {
+        let huge = solidPNG(width: 2400, height: 1200, gray: 40)
+        let result = ClipboardHistoryStore.pngData(fromImageData: huge)
+        XCTAssertNotNil(result)
+        let (_, width, height) = result!
+        XCTAssertLessThanOrEqual(max(width, height), Int(ClipboardHistoryStore.maxStoredImageEdge))
+        XCTAssertEqual(Double(width) / Double(height), 2, accuracy: 0.05)
+    }
+
+    func testImageClearedRemovesFiles() {
+        let store = makeStore()
+        let png = solidPNG(width: 2, height: 2, gray: 10)
+        store.addImage(pngData: png, width: 2, height: 2)
+        let url = store.imageURL(for: store.items[0])
+        XCTAssertNotNil(url)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: url!.path))
+        store.clearAll()
+        XCTAssertTrue(store.items.isEmpty)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: url!.path))
+    }
+
+    func testTypeFilterMatches() {
+        XCTAssertTrue(ClipboardTypeFilter.all.matches(.image))
+        XCTAssertTrue(ClipboardTypeFilter.link.matches(.link))
+        XCTAssertFalse(ClipboardTypeFilter.text.matches(.image))
+    }
+
+    func testClipboardModelFiltersAndPasteAction() {
+        let store = makeStore()
+        store.add(text: "hello world")
+        store.add(text: "https://filter.example")
+        let model = ClipboardModel(historyStore: store, onOwnWrite: { _ in })
+        model.typeFilter = .link
+        XCTAssertEqual(model.filteredItems.count, 1)
+        XCTAssertEqual(model.filteredItems[0].kind, .link)
+        model.query = "filter"
+        XCTAssertEqual(model.filteredItems.count, 1)
+        model.query = "nope"
+        XCTAssertTrue(model.filteredItems.isEmpty)
+    }
+
+    func testPayloadPrefersImageOverText() {
+        let pb = NSPasteboard.withUniqueName()
+        defer { pb.releaseGlobally() }
+        pb.clearContents()
+        let png = solidPNG(width: 3, height: 3, gray: 200)
+        pb.setData(png, forType: .png)
+        pb.setString("filename.png", forType: .string)
+        if case .image = ClipboardMonitor.payload(from: pb) {
+            // ok
+        } else {
+            XCTFail("Expected image payload when PNG is present")
+        }
+    }
+
+    private func solidPNG(width: Int, height: Int, gray: UInt8) -> Data {
+        let color = NSColor(srgbRed: CGFloat(gray) / 255, green: CGFloat(gray) / 255,
+                            blue: CGFloat(gray) / 255, alpha: 1)
+        let image = NSImage(size: NSSize(width: width, height: height))
+        image.lockFocus()
+        color.setFill()
+        NSBezierPath.fill(NSRect(x: 0, y: 0, width: width, height: height))
+        image.unlockFocus()
+        let tiff = image.tiffRepresentation!
+        let rep = NSBitmapImageRep(data: tiff)!
+        return rep.representation(using: .png, properties: [:])!
     }
 
     // MARK: - Preferences Defaults

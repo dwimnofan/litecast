@@ -15,14 +15,19 @@ final class NowPlayingService {
     @ObservationIgnored private var artworkKey: String?
     @ObservationIgnored private var artworkTask: Task<Void, Never>?
 
-    func start() {
+    /// - Parameter refreshImmediately: when `false` (notch idle start), only attach listeners —
+    ///   avoids AppleScript round-trips at launch until the notch expands or a player fires.
+    func start(refreshImmediately: Bool = true) {
         guard observers.isEmpty else { return }
         observers = MediaSource.allCases.map { source in
             DistributedNotificationCenter.default().addObserver(
                 forName: source.playerNotification, object: nil, queue: .main
-            ) { [weak self] _ in Task { @MainActor in self?.refresh() } }
+            ) { [weak self] _ in
+                // Delivered on the main queue — no Task allocation per notification.
+                MainActor.assumeIsolated { self?.refresh() }
+            }
         }
-        refresh()
+        if refreshImmediately { refresh() }
     }
 
     func stop() {

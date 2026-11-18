@@ -46,6 +46,13 @@ final class CommandExecutor {
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(text, forType: .string)
             onCopyText?(NSPasteboard.general.changeCount)
+        case .copyImage(let data):
+            NSPasteboard.general.clearContents()
+            if let image = NSImage(data: data), let tiff = image.tiffRepresentation {
+                NSPasteboard.general.setData(tiff, forType: .tiff)
+            }
+            NSPasteboard.general.setData(data, forType: .png)
+            onCopyText?(NSPasteboard.general.changeCount)
         case .revealInFinder(let url):
             NSWorkspace.shared.activateFileViewerSelecting([url])
         case .builtin(let command):

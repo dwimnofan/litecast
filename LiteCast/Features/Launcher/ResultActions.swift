@@ -21,7 +21,7 @@ extension SearchResult {
             ]
         case .openURL(let url):
             actions.append(ResultAction(title: "Copy Link", symbol: "link", action: .copyText(url.absoluteString)))
-        case .copyText, .builtin, .revealInFinder:
+        case .copyText, .copyImage, .builtin, .revealInFinder:
             break
         }
         return actions

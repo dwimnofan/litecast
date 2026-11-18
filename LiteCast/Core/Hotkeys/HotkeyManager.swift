@@ -7,6 +7,7 @@ struct Hotkey: Equatable, Sendable {
     let displayName: String
 
     static let optionSpace = Hotkey(keyCode: UInt32(kVK_Space), carbonModifiers: UInt32(optionKey), displayName: "⌥Space")
+    static let shiftCommandV = Hotkey(keyCode: UInt32(kVK_ANSI_V), carbonModifiers: UInt32(shiftKey | cmdKey), displayName: "⇧⌘V")
 
     static func carbonModifiers(from flags: NSEvent.ModifierFlags) -> UInt32 {
         var m: UInt32 = 0
@@ -70,56 +71,101 @@ struct Hotkey: Equatable, Sendable {
     }
 }
 
-/// Global shortcut via Carbon RegisterEventHotKey. Needs no Accessibility permission.
+/// Global shortcuts via Carbon `RegisterEventHotKey`. Needs no Accessibility permission to *register*;
+/// pasting via synthetic ⌘V (clipboard panel) may still need Accessibility.
 @MainActor
 final class HotkeyManager {
+    enum Slot: UInt32, Hashable {
+        case launcher = 1
+        case clipboard = 2
+    }
+
     enum RegistrationError: Error {
         case handlerInstallFailed(OSStatus)
         case registrationFailed(OSStatus)
     }
 
     // nonisolated(unsafe): only touched on main, plus deinit when no other reference exists.
-    nonisolated(unsafe) private var hotKeyRef: EventHotKeyRef?
+    nonisolated(unsafe) private var hotKeyRefs: [UInt32: EventHotKeyRef] = [:]
     nonisolated(unsafe) private var handlerRef: EventHandlerRef?
-    private var action: (() -> Void)?
+    private var actions: [Slot: () -> Void] = [:]
 
-    func register(_ hotkey: Hotkey, action: @escaping () -> Void) throws(RegistrationError) {
-        unregister()
-        self.action = action
+    func register(_ hotkey: Hotkey, slot: Slot, action: @escaping () -> Void) throws(RegistrationError) {
+        try ensureHandlerInstalled()
+        unregister(slot)
+        actions[slot] = action
 
+        var ref: EventHotKeyRef?
+        let id = EventHotKeyID(signature: OSType(0x4C43_4854), id: slot.rawValue) // "LCHT"
+        let status = RegisterEventHotKey(
+            hotkey.keyCode, hotkey.carbonModifiers, id,
+            GetApplicationEventTarget(), OptionBits(kEventHotKeyExclusive), &ref
+        )
+        guard status == noErr, let ref else {
+            actions[slot] = nil
+            throw .registrationFailed(status)
+        }
+        hotKeyRefs[slot.rawValue] = ref
+    }
+
+    func unregister(_ slot: Slot) {
+        if let ref = hotKeyRefs.removeValue(forKey: slot.rawValue) {
+            UnregisterEventHotKey(ref)
+        }
+        actions[slot] = nil
+    }
+
+    func unregisterAll() {
+        for slot in actions.keys {
+            unregister(slot)
+        }
+        // Any leftover refs (shouldn't happen)
+        for (_, ref) in hotKeyRefs {
+            UnregisterEventHotKey(ref)
+        }
+        hotKeyRefs.removeAll()
+        removeHandler()
+    }
+
+    /// Backward-compatible alias used by older call sites / terminate.
+    func unregister() { unregisterAll() }
+
+    deinit {
+        for (_, ref) in hotKeyRefs { UnregisterEventHotKey(ref) }
+        if let handlerRef { RemoveEventHandler(handlerRef) }
+    }
+
+    private func ensureHandlerInstalled() throws(RegistrationError) {
+        guard handlerRef == nil else { return }
         var eventType = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
         let handlerStatus = InstallEventHandler(
             GetApplicationEventTarget(),
-            { _, _, userData in
-                guard let userData else { return noErr }
+            // Carbon order: (EventHandlerCallRef, EventRef, userData) — event is the 2nd arg.
+            { _, event, userData in
+                guard let userData, let event else { return noErr }
+                var hotKeyID = EventHotKeyID()
+                let err = GetEventParameter(
+                    event, EventParamName(kEventParamDirectObject),
+                    EventParamType(typeEventHotKeyID), nil,
+                    MemoryLayout<EventHotKeyID>.size, nil, &hotKeyID
+                )
+                guard err == noErr else { return noErr }
                 // Carbon delivers application-target events on the main thread.
                 MainActor.assumeIsolated {
-                    Unmanaged<HotkeyManager>.fromOpaque(userData).takeUnretainedValue().action?()
+                    let manager = Unmanaged<HotkeyManager>.fromOpaque(userData).takeUnretainedValue()
+                    if let slot = Slot(rawValue: hotKeyID.id) {
+                        manager.actions[slot]?()
+                    }
                 }
                 return noErr
             },
             1, &eventType, Unmanaged.passUnretained(self).toOpaque(), &handlerRef
         )
         guard handlerStatus == noErr else { throw .handlerInstallFailed(handlerStatus) }
-
-        let id = EventHotKeyID(signature: OSType(0x4C43_4854), id: 1) // "LCHT"
-        let status = RegisterEventHotKey(hotkey.keyCode, hotkey.carbonModifiers, id, GetApplicationEventTarget(), OptionBits(kEventHotKeyExclusive), &hotKeyRef)
-        guard status == noErr else {
-            unregister()
-            throw .registrationFailed(status)
-        }
     }
 
-    deinit {
-        if let hotKeyRef { UnregisterEventHotKey(hotKeyRef) }
+    private func removeHandler() {
         if let handlerRef { RemoveEventHandler(handlerRef) }
-    }
-
-    func unregister() {
-        if let hotKeyRef { UnregisterEventHotKey(hotKeyRef) }
-        if let handlerRef { RemoveEventHandler(handlerRef) }
-        hotKeyRef = nil
         handlerRef = nil
-        action = nil
     }
 }
