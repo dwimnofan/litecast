@@ -22,6 +22,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         environment.hotkeys.unregisterAll()
         environment.launcher.hide()
         environment.clipboard.hide()
+        environment.notes.hide()
         environment.notch.stop()
         environment.clipboardMonitor.stop()
         Log.app.info("LiteCast terminating")

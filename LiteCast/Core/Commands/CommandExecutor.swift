@@ -6,11 +6,13 @@ final class CommandExecutor {
     enum ExecutionError: LocalizedError {
         case unsupportedURL(URL)
         case unavailableCommand(BuiltinCommand)
+        case unavailableFeature(String)
 
         var errorDescription: String? {
             switch self {
             case .unsupportedURL(let url): "LiteCast can't open \(url.absoluteString)."
             case .unavailableCommand(let command): "\(command.title) isn't available."
+            case .unavailableFeature(let name): "\(name) isn't available."
             }
         }
     }
@@ -20,6 +22,12 @@ final class CommandExecutor {
     /// Called after the executor writes text to the pasteboard, with the new changeCount.
     /// Used by ClipboardMonitor to skip our own writes.
     var onCopyText: ((Int) -> Void)?
+
+    /// Window snap / restore. Set by AppEnvironment when Window Management is wired.
+    var onWindowPlacement: ((WindowPlacement) async throws -> Void)?
+
+    /// Open a note file in the Notes window.
+    var onOpenNote: ((URL) -> Void)?
 
     /// Features register the built-in commands they implement.
     func register(_ command: BuiltinCommand, handler: @escaping () -> Void) {
@@ -55,6 +63,12 @@ final class CommandExecutor {
             onCopyText?(NSPasteboard.general.changeCount)
         case .revealInFinder(let url):
             NSWorkspace.shared.activateFileViewerSelecting([url])
+        case .windowPlacement(let placement):
+            guard let onWindowPlacement else { throw ExecutionError.unavailableFeature("Window Management") }
+            try await onWindowPlacement(placement)
+        case .openNote(let url):
+            guard let onOpenNote else { throw ExecutionError.unavailableFeature("Notes") }
+            onOpenNote(url)
         case .builtin(let command):
             guard let handler = builtinHandlers[command] else { throw ExecutionError.unavailableCommand(command) }
             handler()

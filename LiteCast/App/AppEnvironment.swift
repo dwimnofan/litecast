@@ -9,18 +9,23 @@ final class AppEnvironment {
     let executor = CommandExecutor()
     let quicklinks: QuicklinkStore
     let snippets: SnippetStore
+    let noteStore: NoteStore
+    let windowManager = WindowManager()
     let launcher: LauncherWindowController
     let notch: NotchWindowController
     let settings = SettingsWindowController()
     let clipboardHistoryStore = ClipboardHistoryStore()
     let clipboardMonitor: ClipboardMonitor
     let clipboard: ClipboardWindowController
+    let notes: NotesWindowController
 
     init(defaults: UserDefaults = .standard) {
         preferences = PreferencesStore(defaults: defaults)
         quicklinks = QuicklinkStore()
         snippets = SnippetStore()
+        noteStore = NoteStore(defaults: defaults)
         clipboardMonitor = ClipboardMonitor(historyStore: clipboardHistoryStore, preferences: preferences)
+        windowManager.gap = preferences.windowGap
 
         let prefs = preferences
         executor.register(.toggleNotch) { prefs.notchEnabled.toggle() }
@@ -29,6 +34,8 @@ final class AppEnvironment {
         let providers: [SearchProvider] = [
             appDiscovery,
             ClipboardHistoryProvider(historyStore: clipboardHistoryStore),
+            WindowManagementProvider(preferences: preferences, manager: windowManager),
+            NotesProvider(preferences: preferences, store: noteStore),
             BuiltinCommandProvider(executor: executor),
             CalculatorProvider(),
             QuicklinkProvider(store: quicklinks),
@@ -53,6 +60,38 @@ final class AppEnvironment {
             guard prefs.clipboardHistoryEnabled else { return }
             launcher.hide()
             clipboard.show()
+        }
+
+        notes = NotesWindowController(store: noteStore)
+        let notes = notes
+        let windowManager = windowManager
+        executor.register(.showNotes) {
+            guard prefs.notesEnabled else { return }
+            launcher.hide()
+            notes.toggle()
+        }
+        executor.register(.createNote) {
+            guard prefs.notesEnabled else { return }
+            launcher.hide()
+            notes.showNew()
+        }
+        executor.onOpenNote = { url in
+            guard prefs.notesEnabled else { return }
+            launcher.hide()
+            notes.show(select: url)
+        }
+        executor.onWindowPlacement = { placement in
+            guard prefs.windowManagementEnabled else {
+                throw CommandExecutor.ExecutionError.unavailableFeature("Window Management")
+            }
+            if !WindowManager.isTrusted {
+                WindowManager.ensureTrusted(prompt: true)
+            }
+            windowManager.gap = prefs.windowGap
+            // Hide launcher first so the previously focused app is frontmost again.
+            launcher.hide()
+            try? await Task.sleep(nanoseconds: 50_000_000)
+            try windowManager.apply(placement)
         }
 
         // After all stored properties are initialized.

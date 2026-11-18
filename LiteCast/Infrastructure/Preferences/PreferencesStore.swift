@@ -19,6 +19,9 @@ final class PreferencesStore {
         static let clipboardHotkeyCode = "clipboardHotkeyKeyCode"
         static let clipboardHotkeyModifiers = "clipboardHotkeyModifiers"
         static let clipboardHotkeyName = "clipboardHotkeyName"
+        static let windowManagementEnabled = "windowManagementEnabled"
+        static let windowGap = "windowGap"
+        static let notesEnabled = "notesEnabled"
     }
 
     @ObservationIgnored private let defaults: UserDefaults
@@ -73,6 +76,20 @@ final class PreferencesStore {
         didSet { defaults.set(clipboardExcludedApps, forKey: Key.clipboardExcludedApps) }
     }
 
+    /// Opt-in window snap/resize via Accessibility.
+    var windowManagementEnabled: Bool {
+        didSet { defaults.set(windowManagementEnabled, forKey: Key.windowManagementEnabled) }
+    }
+
+    var windowGap: CGFloat {
+        didSet { defaults.set(Double(windowGap), forKey: Key.windowGap) }
+    }
+
+    /// Opt-in Markdown notes folder + floating editor.
+    var notesEnabled: Bool {
+        didSet { defaults.set(notesEnabled, forKey: Key.notesEnabled) }
+    }
+
     init(defaults: UserDefaults) {
         self.defaults = defaults
         defaults.register(defaults: [
@@ -101,6 +118,10 @@ final class PreferencesStore {
             clipboardHotkey = .shiftCommandV
         }
         clipboardExcludedApps = defaults.stringArray(forKey: Key.clipboardExcludedApps) ?? []
+        windowManagementEnabled = defaults.bool(forKey: Key.windowManagementEnabled)
+        let gap = defaults.object(forKey: Key.windowGap) as? Double ?? 0
+        windowGap = CGFloat(gap)
+        notesEnabled = defaults.bool(forKey: Key.notesEnabled)
     }
 
     func applyActivationPolicy() {

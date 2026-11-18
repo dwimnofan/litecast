@@ -8,7 +8,8 @@ enum SearchIcon: Hashable, Sendable {
 /// Built-in commands. A command only shows in search once a handler is registered
 /// on `CommandExecutor`, so unimplemented commands never appear.
 enum BuiltinCommand: String, CaseIterable, Hashable, Sendable {
-    case openSettings, toggleNotch, openClipboardHistory, clearClipboardHistory, quit
+    case openSettings, toggleNotch, openClipboardHistory, clearClipboardHistory
+    case showNotes, createNote, quit
 
     var title: String {
         switch self {
@@ -16,6 +17,8 @@ enum BuiltinCommand: String, CaseIterable, Hashable, Sendable {
         case .toggleNotch: "Toggle Notch"
         case .openClipboardHistory: "Clipboard History"
         case .clearClipboardHistory: "Clear Clipboard History"
+        case .showNotes: "Show Notes"
+        case .createNote: "Create Note"
         case .quit: "Quit LiteCast"
         }
     }
@@ -26,6 +29,8 @@ enum BuiltinCommand: String, CaseIterable, Hashable, Sendable {
         case .toggleNotch: "rectangle.topthird.inset.filled"
         case .openClipboardHistory: "doc.on.clipboard"
         case .clearClipboardHistory: "trash"
+        case .showNotes: "note.text"
+        case .createNote: "square.and.pencil"
         case .quit: "power"
         }
     }
@@ -39,6 +44,8 @@ enum SearchAction: Hashable, Sendable {
     case copyImage(Data)
     case builtin(BuiltinCommand)
     case revealInFinder(URL)
+    case windowPlacement(WindowPlacement)
+    case openNote(URL)
 
     var title: String {
         switch self {
@@ -48,6 +55,8 @@ enum SearchAction: Hashable, Sendable {
         case .copyImage: "Copy Image"
         case .builtin: "Run Command"
         case .revealInFinder: "Show in Finder"
+        case .windowPlacement(let placement): placement.title
+        case .openNote: "Open Note"
         }
     }
 }

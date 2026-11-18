@@ -19,8 +19,13 @@ struct SettingsView: View {
                                   preferences: environment.preferences,
                                   historyStore: environment.clipboardHistoryStore)
                 .tabItem { Label("Clipboard", systemImage: "doc.on.clipboard") }
+            WindowManagementSettingsView(preferences: environment.preferences,
+                                         manager: environment.windowManager)
+                .tabItem { Label("Windows", systemImage: "rectangle.split.2x1") }
+            NotesSettingsView(preferences: environment.preferences, store: environment.noteStore)
+                .tabItem { Label("Notes", systemImage: "note.text") }
         }
-        .frame(width: 560, height: 420)
+        .frame(width: 560, height: 460)
     }
 }
 

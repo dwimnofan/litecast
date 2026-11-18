@@ -15,6 +15,12 @@ struct LiteCastApp: App {
                     appDelegate.environment.clipboard.show()
                 }
             }
+            if appDelegate.environment.preferences.notesEnabled {
+                Button("Notes") {
+                    appDelegate.environment.launcher.hide()
+                    appDelegate.environment.notes.toggle()
+                }
+            }
             Button("Toggle Notch") { appDelegate.environment.preferences.notchEnabled.toggle() }
             Divider()
             Button("Settings…") { appDelegate.environment.settings.show() }
