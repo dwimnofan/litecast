@@ -35,6 +35,7 @@ enum SearchAction: Hashable, Sendable {
     case openURL(URL)
     case copyText(String)
     case builtin(BuiltinCommand)
+    case revealInFinder(URL)
 
     var title: String {
         switch self {
@@ -42,6 +43,7 @@ enum SearchAction: Hashable, Sendable {
         case .openURL: "Open Link"
         case .copyText: "Copy to Clipboard"
         case .builtin: "Run Command"
+        case .revealInFinder: "Show in Finder"
         }
     }
 }

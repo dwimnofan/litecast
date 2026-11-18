@@ -46,6 +46,8 @@ final class CommandExecutor {
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(text, forType: .string)
             onCopyText?(NSPasteboard.general.changeCount)
+        case .revealInFinder(let url):
+            NSWorkspace.shared.activateFileViewerSelecting([url])
         case .builtin(let command):
             guard let handler = builtinHandlers[command] else { throw ExecutionError.unavailableCommand(command) }
             handler()

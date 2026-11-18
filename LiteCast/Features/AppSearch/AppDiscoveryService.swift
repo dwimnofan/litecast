@@ -45,7 +45,7 @@ final class AppDiscoveryService: SearchProvider {
             guard seen.insert(bundleID).inserted else { return nil }
             let name = FileManager.default.displayName(atPath: url.path)
             let title = name.hasSuffix(".app") ? String(name.dropLast(4)) : name
-            return SearchResult(id: bundleID, title: title, subtitle: url.deletingLastPathComponent().path,
+            return SearchResult(id: bundleID, title: title,
                                 accessory: "Application", icon: .file(url), action: .openApplication(url))
         }
     }

@@ -5,14 +5,23 @@ import SwiftUI
 /// so the previously active app stays frontmost when the launcher hides.
 private final class LauncherPanel: NSPanel {
     var onCancel: () -> Void = {}
+    var onKeyDown: (NSEvent) -> Bool = { _ in false }
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { true }
     override func cancelOperation(_ sender: Any?) { onCancel() }
+
+    // Intercept navigation keys before the text field's editor sees them.
+    override func sendEvent(_ event: NSEvent) {
+        if event.type == .keyDown, onKeyDown(event) { return }
+        super.sendEvent(event)
+    }
 }
 
 @MainActor
 final class LauncherWindowController: NSObject, NSWindowDelegate {
-    private static let size = NSSize(width: 750, height: 475)
+    private static let cardSize = NSSize(width: 750, height: 475)
+    /// Transparent margin so the card's shadows aren't clipped by the window.
+    static let shadowMargin: CGFloat = 24
 
     private let model: LauncherModel
     private let discovery: AppDiscoveryService
@@ -20,7 +29,7 @@ final class LauncherWindowController: NSObject, NSWindowDelegate {
 
     init(discovery: AppDiscoveryService, providers: [SearchProvider], executor: CommandExecutor) {
         self.discovery = discovery
-        model = LauncherModel(providers: providers, executor: executor)
+        model = LauncherModel(providers: providers, executor: executor, usage: UsageStore())
         super.init()
         model.onFinish = { [weak self] in self?.hide() }
         discovery.onUpdate = { [weak model] in model?.updateResults() }
@@ -55,10 +64,12 @@ final class LauncherWindowController: NSObject, NSWindowDelegate {
         let mouse = NSEvent.mouseLocation
         let screen = NSScreen.screens.first { NSMouseInRect(mouse, $0.frame, false) } ?? NSScreen.main
         guard let visible = screen?.visibleFrame else { return }
-        let size = NSSize(width: min(Self.size.width, visible.width), height: min(Self.size.height, visible.height))
+        let m = Self.shadowMargin
+        let size = NSSize(width: min(Self.cardSize.width + 2 * m, visible.width),
+                          height: min(Self.cardSize.height + 2 * m, visible.height))
         panel.setFrame(NSRect(
             x: visible.midX - size.width / 2,
-            y: max(visible.minY, visible.maxY - visible.height * 0.2 - size.height),
+            y: max(visible.minY, visible.maxY - visible.height * 0.18 - size.height + m),
             width: size.width,
             height: size.height
         ), display: false)
@@ -66,7 +77,7 @@ final class LauncherWindowController: NSObject, NSWindowDelegate {
 
     private func makePanel() -> LauncherPanel {
         let panel = LauncherPanel(
-            contentRect: NSRect(origin: .zero, size: Self.size),
+            contentRect: NSRect(origin: .zero, size: Self.cardSize),
             styleMask: [.borderless, .nonactivatingPanel, .fullSizeContentView],
             backing: .buffered,
             defer: true
@@ -75,12 +86,22 @@ final class LauncherWindowController: NSObject, NSWindowDelegate {
         panel.collectionBehavior = [.canJoinAllSpaces, .canJoinAllApplications, .fullScreenAuxiliary, .transient]
         panel.isOpaque = false
         panel.backgroundColor = .clear
-        panel.hasShadow = true
+        panel.hasShadow = false // the card draws its own paper shadows
+        panel.appearance = NSAppearance(named: .aqua) // Paper / Ink is a light theme
         panel.isReleasedWhenClosed = false
         panel.hidesOnDeactivate = false
         panel.contentView = NSHostingView(rootView: LauncherView(model: model))
         panel.delegate = self
         panel.onCancel = { [weak self] in self?.hide() }
+        panel.onKeyDown = { [weak self, weak panel] event in
+            guard let self else { return false }
+            let composing = (panel?.firstResponder as? NSTextView)?.hasMarkedText() ?? false
+            switch model.handleKey(keyCode: Int(event.keyCode), modifiers: event.modifierFlags, composing: composing) {
+            case .handled: return true
+            case .dismiss: hide(); return true
+            case .passThrough: return false
+            }
+        }
         return panel
     }
 }
